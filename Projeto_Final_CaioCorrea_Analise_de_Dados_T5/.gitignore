@@ -1,0 +1,21 @@
+# Credenciais e configurações locais
+.env
+
+# Arquivos de dados
+data/
+*.csv
+*.zip
+
+# Ambiente virtual Python
+.venv/
+venv/
+
+# Arquivos temporários do Python
+__pycache__/
+*.pyc
+
+# Arquivos temporários do Jupyter
+.ipynb_checkpoints/
+
+# Configurações locais do editor
+.vscode/
