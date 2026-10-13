@@ -38,3 +38,69 @@ CREATE TABLE raw_viagem (
     valor_devolucao        VARCHAR(255),
     valor_outros_gastos    VARCHAR(255)
 );
+-- ============================================================
+-- Tabela Raw: pagamentos
+-- Origem: 2025_Pagamento.csv
+-- ============================================================
+
+CREATE TABLE raw_pagamento (
+    id_viagem           VARCHAR(255),
+    num_proposta        VARCHAR(255),
+    cod_orgao_superior  VARCHAR(255),
+    nome_orgao_superior VARCHAR(255),
+    cod_orgao_pagador   VARCHAR(255),
+    nome_orgao_pagador  VARCHAR(255),
+    cod_ug_pagadora     VARCHAR(255),
+    nome_ug_pagadora    VARCHAR(255),
+    tipo_pagamento      VARCHAR(255),
+    valor               VARCHAR(255)
+);
+
+-- ============================================================
+-- Tabela Raw: passagens
+-- Origem: 2025_Passagem.csv
+-- ============================================================
+
+CREATE TABLE raw_passagem (
+    id_viagem            VARCHAR(255),
+    num_proposta         VARCHAR(255),
+    meio_transporte      VARCHAR(255),
+    pais_origem_ida      VARCHAR(255),
+    uf_origem_ida        VARCHAR(255),
+    cidade_origem_ida    VARCHAR(255),
+    pais_destino_ida     VARCHAR(255),
+    uf_destino_ida       VARCHAR(255),
+    cidade_destino_ida   VARCHAR(255),
+    pais_origem_volta    VARCHAR(255),
+    uf_origem_volta      VARCHAR(255),
+    cidade_origem_volta  VARCHAR(255),
+    pais_destino_volta   VARCHAR(255),
+    uf_destino_volta     VARCHAR(255),
+    cidade_destino_volta VARCHAR(255),
+    valor_passagem       VARCHAR(255),
+    taxa_servico         VARCHAR(255),
+    data_emissao         VARCHAR(255),
+    hora_emissao         VARCHAR(255)
+);
+
+-- ============================================================
+-- Tabela Raw: trechos
+-- Origem: 2025_Trecho.csv
+-- ============================================================
+
+CREATE TABLE raw_trecho (
+    id_viagem        VARCHAR(255),
+    num_proposta     VARCHAR(255),
+    sequencia_trecho VARCHAR(255),
+    origem_data      VARCHAR(255),
+    origem_pais      VARCHAR(255),
+    origem_uf        VARCHAR(255),
+    origem_cidade    VARCHAR(255),
+    destino_data     VARCHAR(255),
+    destino_pais     VARCHAR(255),
+    destino_uf       VARCHAR(255),
+    destino_cidade   VARCHAR(255),
+    meio_transporte  VARCHAR(255),
+    numero_diarias   VARCHAR(255),
+    missao           VARCHAR(255)
+);
