@@ -45,6 +45,34 @@ def validar_datas_viagens(cursor):
     print("Datas das viagens validadas com sucesso.")
 
 
+def validar_datas_passagens(cursor):
+    """Verifica as datas de emissao preenchidas das passagens."""
+
+    print("Validando datas de emissao das passagens...")
+
+    cursor.execute(
+        """
+        SELECT COUNT(*)
+        FROM raw_passagem
+        WHERE NULLIF(TRIM(data_emissao), '') IS NOT NULL
+          AND TO_CHAR(
+              TO_DATE(TRIM(data_emissao), 'DD/MM/YYYY'),
+              'DD/MM/YYYY'
+          ) <> TRIM(data_emissao)
+        """
+    )
+
+    quantidade_invalidas = cursor.fetchone()[0]
+
+    if quantidade_invalidas > 0:
+        raise ValueError(
+            f"Foram encontradas {quantidade_invalidas} "
+            "passagens com datas de emissao invalidas."
+        )
+
+    print("Datas de emissao validadas com sucesso.")
+
+
 def limpar_silver(cursor):
     """Limpa as tabelas Silver respeitando as chaves estrangeiras."""
 
@@ -129,9 +157,7 @@ def transformar_viagens(cursor):
         """
     )
 
-    print(
-        f"Viagens transformadas: {cursor.rowcount:,} registros."
-    )
+    print(f"Viagens transformadas: {cursor.rowcount:,} registros.")
 
 
 def transformar_pagamentos(cursor):
@@ -160,9 +186,52 @@ def transformar_pagamentos(cursor):
         """
     )
 
-    print(
-        f"Pagamentos transformados: {cursor.rowcount:,} registros."
+    print(f"Pagamentos transformados: {cursor.rowcount:,} registros.")
+
+
+def transformar_passagens(cursor):
+    """Transforma os registros de raw_passagem em silver_passagem."""
+
+    print("Iniciando transformacao das passagens...")
+
+    cursor.execute(
+        """
+        INSERT INTO silver_passagem (
+            id_viagem,
+            meio_transporte,
+            pais_origem_ida,
+            uf_origem_ida,
+            cidade_origem_ida,
+            pais_destino_ida,
+            uf_destino_ida,
+            cidade_destino_ida,
+            valor_passagem,
+            taxa_servico,
+            data_emissao
+        )
+        SELECT
+            NULLIF(TRIM(id_viagem), ''),
+            NULLIF(TRIM(meio_transporte), ''),
+            NULLIF(TRIM(pais_origem_ida), ''),
+            NULLIF(TRIM(uf_origem_ida), ''),
+            NULLIF(TRIM(cidade_origem_ida), ''),
+            NULLIF(TRIM(pais_destino_ida), ''),
+            NULLIF(TRIM(uf_destino_ida), ''),
+            NULLIF(TRIM(cidade_destino_ida), ''),
+
+            REPLACE(valor_passagem, ',', '.')::NUMERIC(10, 2),
+            REPLACE(taxa_servico, ',', '.')::NUMERIC(10, 2),
+
+            TO_DATE(
+                NULLIF(TRIM(data_emissao), ''),
+                'DD/MM/YYYY'
+            )
+
+        FROM raw_passagem;
+        """
     )
+
+    print(f"Passagens transformadas: {cursor.rowcount:,} registros.")
 
 
 def main():
@@ -172,9 +241,13 @@ def main():
 
     with closing(conectar()) as conexao, conexao, conexao.cursor() as cursor:
         validar_datas_viagens(cursor)
+        validar_datas_passagens(cursor)
+
         limpar_silver(cursor)
+
         transformar_viagens(cursor)
         transformar_pagamentos(cursor)
+        transformar_passagens(cursor)
 
     print("Transformacao concluida com sucesso.")
 
