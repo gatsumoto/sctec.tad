@@ -7,6 +7,11 @@
 -- Fase 0: criação do banco de dados
 
 CREATE DATABASE transparencia;
+-- ATENCAO:
+-- Execute o CREATE DATABASE conectado ao banco "postgres".
+-- Depois, conecte-se ao banco "transparencia" antes de
+-- executar os comandos CREATE TABLE abaixo.
+-- Se o banco "transparencia" ja existir, pule o CREATE DATABASE.
 -- ============================================================
 -- Fase 0: criação das tabelas da camada Raw
 -- ============================================================
