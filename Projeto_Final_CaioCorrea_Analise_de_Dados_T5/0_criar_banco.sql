@@ -149,3 +149,26 @@ CREATE TABLE silver_pagamento (
         FOREIGN KEY (id_viagem)
         REFERENCES silver_viagem(id_viagem)
 );
+-- ============================================================
+-- Tabela Silver: passagens
+-- Origem: raw_passagem
+-- ============================================================
+
+CREATE TABLE silver_passagem (
+    id_passagem        INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_viagem          VARCHAR(20) NOT NULL,
+    meio_transporte    VARCHAR(50),
+    pais_origem_ida    VARCHAR(60),
+    uf_origem_ida      VARCHAR(40),
+    cidade_origem_ida  VARCHAR(80),
+    pais_destino_ida   VARCHAR(60),
+    uf_destino_ida     VARCHAR(40),
+    cidade_destino_ida VARCHAR(80),
+    valor_passagem     DECIMAL(10,2) CHECK (valor_passagem >= 0),
+    taxa_servico       DECIMAL(10,2) CHECK (taxa_servico >= 0),
+    data_emissao       DATE,
+
+    CONSTRAINT fk_passagem_viagem
+        FOREIGN KEY (id_viagem)
+        REFERENCES silver_viagem(id_viagem)
+);
