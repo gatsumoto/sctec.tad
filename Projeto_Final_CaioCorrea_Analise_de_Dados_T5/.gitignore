@@ -19,3 +19,7 @@ __pycache__/
 
 # Configurações locais do editor
 .vscode/
+
+# Cache de ferramentas Python
+.ruff_cache/
+.pytest_cache/
