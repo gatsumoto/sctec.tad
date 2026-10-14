@@ -3,19 +3,31 @@
 ------------
 Etapa de extracao do pipeline ETL.
 
-Responsavel por baixar os dados de viagens a servico
-e preparar os arquivos CSV para carregamento na camada Raw.
+Responsavel por baixar os dados de viagens a servico,
+extrair os arquivos CSV e carregar a camada Raw.
 """
 
+import io
 import zipfile
+from contextlib import closing
 
 import gdown
+import pandas as pd
+from psycopg2 import sql
 
-from config import ARQUIVOS, DRIVE_FILE_ID, PASTA_DADOS
+from banco import conectar
+from config import (
+    ARQUIVOS,
+    CSV_ENCODING,
+    CSV_SEPARADOR,
+    DRIVE_FILE_ID,
+    PASTA_DADOS,
+    TAMANHO_BLOCO,
+)
 
 
 def baixar_zip():
-    """Baixa o arquivo ZIP do Google Drive, caso ainda nao exista."""
+    """Baixa o ZIP do Google Drive caso ainda nao exista."""
 
     PASTA_DADOS.mkdir(parents=True, exist_ok=True)
 
@@ -37,12 +49,11 @@ def baixar_zip():
         raise RuntimeError("Nao foi possivel baixar o arquivo ZIP.")
 
     print("Download concluido com sucesso.")
-
     return caminho_zip
 
 
 def extrair_csvs(caminho_zip):
-    """Extrai os quatro arquivos CSV do ZIP para a pasta data."""
+    """Verifica o ZIP e extrai os quatro arquivos CSV."""
 
     print("Verificando os arquivos dentro do ZIP...")
 
@@ -60,7 +71,6 @@ def extrair_csvs(caminho_zip):
         }
 
         arquivos_encontrados = set(arquivo_zip.namelist())
-
         arquivos_ausentes = arquivos_esperados - arquivos_encontrados
 
         if arquivos_ausentes:
@@ -81,6 +91,143 @@ def extrair_csvs(caminho_zip):
     print("Verificacao e extracao dos CSVs concluidas.")
 
 
+def carregar_raw():
+    """Carrega os quatro CSVs nas tabelas Raw do PostgreSQL."""
+
+    print("\nIniciando carregamento da camada Raw...")
+
+    # closing garante o fechamento da conexao.
+    # O contexto da conexao controla commit e rollback.
+    with closing(conectar()) as conexao, conexao, conexao.cursor() as cursor:
+        for configuracao in ARQUIVOS.values():
+            tabela = configuracao["tabela_raw"]
+            caminho_csv = PASTA_DADOS / configuracao["csv"]
+
+            if not caminho_csv.is_file():
+                raise FileNotFoundError(
+                    f"Arquivo CSV nao encontrado: {caminho_csv}"
+                )
+
+            print(f"\nPreparando tabela {tabela}...")
+
+            # Consulta as colunas na ordem definida no PostgreSQL.
+            cursor.execute(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = %s
+                ORDER BY ordinal_position
+                """,
+                (tabela,),
+            )
+
+            colunas = [linha[0] for linha in cursor.fetchall()]
+
+            if not colunas:
+                raise RuntimeError(
+                    f"Tabela nao encontrada: {tabela}"
+                )
+
+            # Confere a estrutura do CSV antes de limpar a tabela.
+            cabecalho = pd.read_csv(
+                caminho_csv,
+                sep=CSV_SEPARADOR,
+                encoding=CSV_ENCODING,
+                nrows=0,
+            )
+
+            if len(cabecalho.columns) != len(colunas):
+                raise ValueError(
+                    f"Quantidade de colunas incompativel em {tabela}: "
+                    f"CSV={len(cabecalho.columns)}, "
+                    f"PostgreSQL={len(colunas)}"
+                )
+
+            # FORCE_NOT_NULL preserva campos vazios como strings vazias.
+            colunas_sql = sql.SQL(", ").join(
+                sql.Identifier(coluna) for coluna in colunas
+            )
+
+            comando_copy = sql.SQL(
+                "COPY {} ({}) FROM STDIN "
+                "WITH ("
+                "FORMAT CSV, "
+                "DELIMITER ',', "
+                "FORCE_NOT_NULL ({})"
+                ")"
+            ).format(
+                sql.Identifier(tabela),
+                colunas_sql,
+                colunas_sql,
+            )
+
+            comando_truncate = sql.SQL(
+                "TRUNCATE TABLE {}"
+            ).format(
+                sql.Identifier(tabela)
+            )
+
+            # A limpeza so sera confirmada se toda a carga funcionar.
+            cursor.execute(comando_truncate)
+
+            total = 0
+
+            leitor = pd.read_csv(
+                caminho_csv,
+                sep=CSV_SEPARADOR,
+                encoding=CSV_ENCODING,
+                dtype=str,
+                keep_default_na=False,
+                chunksize=TAMANHO_BLOCO,
+            )
+
+            for numero_bloco, bloco in enumerate(leitor, start=1):
+                if len(bloco.columns) != len(colunas):
+                    raise ValueError(
+                        "Quantidade de colunas incompativel "
+                        f"no bloco {numero_bloco} de {tabela}"
+                    )
+
+                buffer = io.StringIO()
+
+                bloco.to_csv(
+                    buffer,
+                    index=False,
+                    header=False,
+                    na_rep="",
+                    lineterminator="\n",
+                )
+
+                buffer.seek(0)
+
+                cursor.copy_expert(
+                    comando_copy.as_string(conexao),
+                    buffer,
+                )
+
+                total += len(bloco)
+
+                print(
+                    f"{tabela} | Bloco {numero_bloco} | "
+                    f"Total carregado: {total:,}"
+                )
+
+            print(
+                f"Tabela {tabela}: {total:,} registros carregados."
+            )
+
+    print("\nCarregamento da camada Raw concluido.")
+
+
 if __name__ == "__main__":
-    caminho_zip = baixar_zip()
-    extrair_csvs(caminho_zip)
+    try:
+        caminho_zip = baixar_zip()
+        extrair_csvs(caminho_zip)
+        carregar_raw()
+
+        print("\nPipeline de extracao finalizado com sucesso.")
+
+    except Exception as erro:
+        print(f"\nErro durante a extracao: {erro}")
+        raise
