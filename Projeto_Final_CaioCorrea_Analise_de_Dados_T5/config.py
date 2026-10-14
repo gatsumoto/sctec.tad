@@ -9,8 +9,9 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Caminhos do projeto
 # ---------------------------------------------------------------------------
-# PASTA_RAIZ = .../desafio_transparencia (a pasta deste arquivo)
+# Diretório raiz do projeto, onde está localizado o arquivo config.py.
 PASTA_RAIZ = Path(__file__).resolve().parent
+
 # onde o .zip e os .csv ficam (ignorada pelo Git)
 PASTA_DADOS = PASTA_RAIZ / "data"
 
