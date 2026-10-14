@@ -73,6 +73,54 @@ def validar_datas_passagens(cursor):
     print("Datas de emissao validadas com sucesso.")
 
 
+def validar_datas_trechos(cursor):
+    """Verifica as datas de origem e destino dos trechos."""
+
+    print("Validando datas dos trechos...")
+
+    cursor.execute(
+        """
+        SELECT
+            COUNT(*) FILTER (
+                WHERE
+                    TO_CHAR(
+                        TO_DATE(origem_data, 'DD/MM/YYYY'),
+                        'DD/MM/YYYY'
+                    ) <> origem_data
+                    OR
+                    TO_CHAR(
+                        TO_DATE(destino_data, 'DD/MM/YYYY'),
+                        'DD/MM/YYYY'
+                    ) <> destino_data
+            ) AS datas_invalidas,
+
+            COUNT(*) FILTER (
+                WHERE
+                    TO_DATE(destino_data, 'DD/MM/YYYY')
+                    < TO_DATE(origem_data, 'DD/MM/YYYY')
+            ) AS datas_invertidas
+
+        FROM raw_trecho;
+        """
+    )
+
+    datas_invalidas, datas_invertidas = cursor.fetchone()
+
+    if datas_invalidas > 0:
+        raise ValueError(
+            f"Foram encontrados {datas_invalidas} "
+            "trechos com datas invalidas."
+        )
+
+    if datas_invertidas > 0:
+        raise ValueError(
+            f"Foram encontrados {datas_invertidas} "
+            "trechos com datas invertidas."
+        )
+
+    print("Datas dos trechos validadas com sucesso.")
+
+
 def limpar_silver(cursor):
     """Limpa as tabelas Silver respeitando as chaves estrangeiras."""
 
@@ -234,6 +282,50 @@ def transformar_passagens(cursor):
     print(f"Passagens transformadas: {cursor.rowcount:,} registros.")
 
 
+def transformar_trechos(cursor):
+    """Transforma os registros de raw_trecho em silver_trecho."""
+
+    print("Iniciando transformacao dos trechos...")
+
+    cursor.execute(
+        """
+        INSERT INTO silver_trecho (
+            id_viagem,
+            sequencia_trecho,
+            origem_data,
+            origem_uf,
+            origem_cidade,
+            destino_data,
+            destino_uf,
+            destino_cidade,
+            meio_transporte,
+            numero_diarias
+        )
+        SELECT
+            NULLIF(TRIM(id_viagem), ''),
+
+            TRIM(sequencia_trecho)::INTEGER,
+
+            TO_DATE(origem_data, 'DD/MM/YYYY'),
+
+            NULLIF(TRIM(origem_uf), ''),
+            NULLIF(TRIM(origem_cidade), ''),
+
+            TO_DATE(destino_data, 'DD/MM/YYYY'),
+
+            NULLIF(TRIM(destino_uf), ''),
+            NULLIF(TRIM(destino_cidade), ''),
+            NULLIF(TRIM(meio_transporte), ''),
+
+            REPLACE(numero_diarias, ',', '.')::NUMERIC(10, 2)
+
+        FROM raw_trecho;
+        """
+    )
+
+    print(f"Trechos transformados: {cursor.rowcount:,} registros.")
+
+
 def main():
     """Executa a transformacao da camada Raw para Silver."""
 
@@ -242,12 +334,14 @@ def main():
     with closing(conectar()) as conexao, conexao, conexao.cursor() as cursor:
         validar_datas_viagens(cursor)
         validar_datas_passagens(cursor)
+        validar_datas_trechos(cursor)
 
         limpar_silver(cursor)
 
         transformar_viagens(cursor)
         transformar_pagamentos(cursor)
         transformar_passagens(cursor)
+        transformar_trechos(cursor)
 
     print("Transformacao concluida com sucesso.")
 
