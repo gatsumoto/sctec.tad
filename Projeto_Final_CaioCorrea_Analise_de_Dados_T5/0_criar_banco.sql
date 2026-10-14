@@ -172,3 +172,28 @@ CREATE TABLE silver_passagem (
         FOREIGN KEY (id_viagem)
         REFERENCES silver_viagem(id_viagem)
 );
+-- ============================================================
+-- Tabela Silver: trechos
+-- Origem: raw_trecho
+-- ============================================================
+
+CREATE TABLE silver_trecho (
+    id_trecho         INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_viagem         VARCHAR(20) NOT NULL,
+    sequencia_trecho  INTEGER,
+    origem_data       DATE,
+    origem_uf         VARCHAR(40),
+    origem_cidade     VARCHAR(80),
+    destino_data      DATE,
+    destino_uf        VARCHAR(40),
+    destino_cidade    VARCHAR(80),
+    meio_transporte   VARCHAR(50),
+    numero_diarias    DECIMAL(10,2) CHECK (numero_diarias >= 0),
+
+    CONSTRAINT fk_trecho_viagem
+        FOREIGN KEY (id_viagem)
+        REFERENCES silver_viagem(id_viagem),
+
+    CONSTRAINT uq_viagem_sequencia_trecho
+        UNIQUE (id_viagem, sequencia_trecho)
+);
