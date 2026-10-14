@@ -134,6 +134,37 @@ def transformar_viagens(cursor):
     )
 
 
+def transformar_pagamentos(cursor):
+    """Transforma os registros de raw_pagamento em silver_pagamento."""
+
+    print("Iniciando transformacao dos pagamentos...")
+
+    cursor.execute(
+        """
+        INSERT INTO silver_pagamento (
+            id_viagem,
+            num_proposta,
+            nome_orgao_pagador,
+            nome_ug_pagadora,
+            tipo_pagamento,
+            valor
+        )
+        SELECT
+            NULLIF(TRIM(id_viagem), ''),
+            NULLIF(TRIM(num_proposta), ''),
+            NULLIF(TRIM(nome_orgao_pagador), ''),
+            NULLIF(TRIM(nome_ug_pagadora), ''),
+            NULLIF(TRIM(tipo_pagamento), ''),
+            REPLACE(valor, ',', '.')::NUMERIC(10, 2)
+        FROM raw_pagamento;
+        """
+    )
+
+    print(
+        f"Pagamentos transformados: {cursor.rowcount:,} registros."
+    )
+
+
 def main():
     """Executa a transformacao da camada Raw para Silver."""
 
@@ -143,6 +174,7 @@ def main():
         validar_datas_viagens(cursor)
         limpar_silver(cursor)
         transformar_viagens(cursor)
+        transformar_pagamentos(cursor)
 
     print("Transformacao concluida com sucesso.")
 
